@@ -1,19 +1,6 @@
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx"
-], function(skylark, langx) {
+    "skylark-langx/skylark"
+], function(skylark) {
 
-
-
-
-    var streams = function() {
-        return streams;
-    }
-
-    langx.mixin(streams,{
-    	"Stream" : Stream,
-        "DecodeStream" : DecodeStream
-    });
-
-    return skylark.streams = streams;
+    return skylark.attach("data.streams",{});
 });
