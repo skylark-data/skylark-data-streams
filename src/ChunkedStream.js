@@ -195,6 +195,6 @@ define([
         }
     });
 
-    return ChunkedStream;
+    return streams.ChunkedStream = ChunkedStream;
 
 });

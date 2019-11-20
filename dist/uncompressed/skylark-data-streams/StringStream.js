@@ -18,6 +18,6 @@ define([
     });
 
 
-    return stream.StringStream = StringStream;
+    return streams.StringStream = StringStream;
 
 });

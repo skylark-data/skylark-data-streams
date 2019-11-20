@@ -4164,7 +4164,7 @@ define('skylark-data-streams/ChunkedStream',[
         }
     });
 
-    return ChunkedStream;
+    return streams.ChunkedStream = ChunkedStream;
 
 });
 
@@ -4990,7 +4990,7 @@ define('skylark-data-streams/StringStream',[
     });
 
 
-    return stream.StringStream = StringStream;
+    return streams.StringStream = StringStream;
 
 });
 
