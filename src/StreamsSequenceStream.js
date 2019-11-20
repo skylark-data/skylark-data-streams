@@ -11,7 +11,7 @@ define([
 
         init : function(streams) {
             this.dict = stream.dict;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {

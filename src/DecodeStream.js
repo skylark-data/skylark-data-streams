@@ -100,6 +100,6 @@ define([
 
     });
 
-    return stream.DecodeStream = DecodeStream;
+    return streams.DecodeStream = DecodeStream;
 
 });

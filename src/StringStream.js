@@ -13,7 +13,7 @@ define([
             var bytes = new Uint8Array(length);
             for (var n = 0; n < length; ++n)
                 bytes[n] = str.charCodeAt(n);
-            this.overrided(bytes);          
+            DecodeStream.prototype.init.call(this);          
         }
     });
 

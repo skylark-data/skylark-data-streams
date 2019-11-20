@@ -15,7 +15,7 @@ define([
             this.str = str;
             this.dict = str.dict;
             this.decrypt = decrypt;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {

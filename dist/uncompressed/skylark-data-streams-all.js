@@ -3802,7 +3802,7 @@ define('skylark-data-streams/DecodeStream',[
 
     });
 
-    return stream.DecodeStream = DecodeStream;
+    return streams.DecodeStream = DecodeStream;
 
 });
 
@@ -3821,7 +3821,7 @@ define('skylark-data-streams/Ascii85Stream',[
             this.dict = str.dict;
             this.input = new Uint8Array(5);
 
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {
@@ -3927,7 +3927,7 @@ define('skylark-data-streams/AsciiHexStream',[
             this.str = str;
             this.dict = str.dict;
 
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {
@@ -3970,225 +3970,198 @@ define('skylark-data-streams/AsciiHexStream',[
 define('skylark-data-streams/ChunkedStream',[
     "skylark-langx/skylark",
     "skylark-langx/langx",
-    "./DecodeStream"
-], function(skylark, langx,DecodeStream) {
+    "./streams",
+    "./Stream"
+], function(skylark, langx,streams,Stream) {
 
 
-    var ChunkedStream = Class.declare({
-        "-parent-": Stream,
+    var ChunkedStream = Stream.inherit({
+        klassName : "ChunkedStream",
 
-        "-interfaces-": [],
+        "numChunks": 0,
+        "numChunksLoaded": 0,
 
-        "-protected-": {
-            "-fields-": {
-                "numChunks": 0,
-                "numChunksLoaded": 0
-            },
+        init : function(str) {
+            var length = str.length;
+            var bytes = new Uint8Array(length);
+            for (var n = 0; n < length; ++n)
+                bytes[n] = str.charCodeAt(n);
+            DecodeStream.prototype.init.call(bytes);          
+            this.dict = stream.dict;
+        },
 
-            "-methods-": {
+        "numChunks": function() {
 
+        },
+
+
+        getMissingChunks: function ChunkedStream_getMissingChunks() {
+            var chunks = [];
+            for (var chunk = 0, n = this.numChunks; chunk < n; ++chunk) {
+                if (!(chunk in this.loadedChunks)) {
+                    chunks.push(chunk);
+                }
+            }
+            return chunks;
+        },
+
+        getBaseStreams: function ChunkedStream_getBaseStreams() {
+            return [this];
+        },
+
+        allChunksLoaded: function ChunkedStream_allChunksLoaded() {
+            var _ = this._;
+            return _.numChunksLoaded === _.numChunks;
+        },
+
+        onReceiveData: function(begin, chunk) {
+            var end = begin + chunk.byteLength;
+
+            assert(begin % this.chunkSize === 0, 'Bad begin offset: ' + begin);
+            // Using this.length is inaccurate here since this.start can be moved
+            // See ChunkedStream.moveStart()
+            var length = this.bytes.length;
+            assert(end % this.chunkSize === 0 || end === length,
+                'Bad end offset: ' + end);
+
+            this.bytes.set(new Uint8Array(chunk), begin);
+            var chunkSize = this.chunkSize;
+            var beginChunk = Math.floor(begin / chunkSize);
+            var endChunk = Math.floor((end - 1) / chunkSize) + 1;
+
+            for (var chunk = beginChunk; chunk < endChunk; ++chunk) {
+                if (!(chunk in this.loadedChunks)) {
+                    this.loadedChunks[chunk] = true;
+                    ++this.numChunksLoaded;
+                }
             }
         },
 
-        "-public-": {
-            "-attributes-": {
-
-
-            },
-            "-methods-": {
-                "numChunks": function() {
-
-                },
-
-
-                getMissingChunks: function ChunkedStream_getMissingChunks() {
-                    var chunks = [];
-                    for (var chunk = 0, n = this.numChunks; chunk < n; ++chunk) {
-                        if (!(chunk in this.loadedChunks)) {
-                            chunks.push(chunk);
-                        }
-                    }
-                    return chunks;
-                },
-
-                getBaseStreams: function ChunkedStream_getBaseStreams() {
-                    return [this];
-                },
-
-                allChunksLoaded: function ChunkedStream_allChunksLoaded() {
-                    var _ = this._;
-                    return _.numChunksLoaded === _.numChunks;
-                },
-
-                onReceiveData: function(begin, chunk) {
-                    var end = begin + chunk.byteLength;
-
-                    assert(begin % this.chunkSize === 0, 'Bad begin offset: ' + begin);
-                    // Using this.length is inaccurate here since this.start can be moved
-                    // See ChunkedStream.moveStart()
-                    var length = this.bytes.length;
-                    assert(end % this.chunkSize === 0 || end === length,
-                        'Bad end offset: ' + end);
-
-                    this.bytes.set(new Uint8Array(chunk), begin);
-                    var chunkSize = this.chunkSize;
-                    var beginChunk = Math.floor(begin / chunkSize);
-                    var endChunk = Math.floor((end - 1) / chunkSize) + 1;
-
-                    for (var chunk = beginChunk; chunk < endChunk; ++chunk) {
-                        if (!(chunk in this.loadedChunks)) {
-                            this.loadedChunks[chunk] = true;
-                            ++this.numChunksLoaded;
-                        }
-                    }
-                },
-
-                onReceiveInitialData: function(data) {
-                    this.bytes.set(data);
-                    this.initialDataLength = data.length;
-                    var endChunk = this.end === data.length ?
-                        this.numChunks : Math.floor(data.length / this.chunkSize);
-                    for (var i = 0; i < endChunk; i++) {
-                        this.loadedChunks[i] = true;
-                        ++this.numChunksLoaded;
-                    }
-                },
-
-                ensureRange: function ChunkedStream_ensureRange(begin, end) {
-                    if (begin >= end) {
-                        return;
-                    }
-
-                    if (end <= this.initialDataLength) {
-                        return;
-                    }
-
-                    var chunkSize = this.chunkSize;
-                    var beginChunk = Math.floor(begin / chunkSize);
-                    var endChunk = Math.floor((end - 1) / chunkSize) + 1;
-                    for (var chunk = beginChunk; chunk < endChunk; ++chunk) {
-                        if (!(chunk in this.loadedChunks)) {
-                            throw new MissingDataException(begin, end);
-                        }
-                    }
-                },
-
-                nextEmptyChunk: function ChunkedStream_nextEmptyChunk(beginChunk) {
-                    for (var chunk = beginChunk, n = this.numChunks; chunk < n; ++chunk) {
-                        if (!(chunk in this.loadedChunks)) {
-                            return chunk;
-                        }
-                    }
-                    // Wrap around to beginning
-                    for (var chunk = 0; chunk < beginChunk; ++chunk) {
-                        if (!(chunk in this.loadedChunks)) {
-                            return chunk;
-                        }
-                    }
-                    return null;
-                },
-
-                hasChunk: function ChunkedStream_hasChunk(chunk) {
-                    return chunk in this._.loadedChunks;
-                },
-
-                getByte: function ChunkedStream_getByte() {
-                    var pos = this.pos;
-                    if (pos >= this.end) {
-                        return -1;
-                    }
-                    this.ensureRange(pos, pos + 1);
-                    return this.bytes[this.pos++];
-                },
-
-                // returns subarray of original buffer
-                // should only be read
-                getBytes: function ChunkedStream_getBytes(length) {
-                    var bytes = this.bytes;
-                    var pos = this.pos;
-                    var strEnd = this.end;
-
-                    if (!length) {
-                        this.ensureRange(pos, strEnd);
-                        return bytes.subarray(pos, strEnd);
-                    }
-
-                    var end = pos + length;
-                    if (end > strEnd)
-                        end = strEnd;
-                    this.ensureRange(pos, end);
-
-                    this.pos = end;
-                    return bytes.subarray(pos, end);
-                },
-
-                peekBytes: function ChunkedStream_peekBytes(length) {
-                    var bytes = this.getBytes(length);
-                    this.pos -= bytes.length;
-                    return bytes;
-                },
-
-                getByteRange: function ChunkedStream_getBytes(begin, end) {
-                    this.ensureRange(begin, end);
-                    return this.bytes.subarray(begin, end);
-                },
-
-                skip: function ChunkedStream_skip(n) {
-                    if (!n)
-                        n = 1;
-                    this.pos += n;
-                },
-
-                reset: function ChunkedStream_reset() {
-                    this.pos = this.start;
-                },
-
-                moveStart: function ChunkedStream_moveStart() {
-                    this.start = this.pos;
-                },
-
-                makeSubStream: function ChunkedStream_makeSubStream(start, length, dict) {
-                    function ChunkedStreamSubstream() {}
-                    ChunkedStreamSubstream.prototype = Object.create(this);
-                    ChunkedStreamSubstream.prototype.getMissingChunks = function() {
-                        var chunkSize = this.chunkSize;
-                        var beginChunk = Math.floor(this.start / chunkSize);
-                        var endChunk = Math.floor((this.end - 1) / chunkSize) + 1;
-                        var missingChunks = [];
-                        for (var chunk = beginChunk; chunk < endChunk; ++chunk) {
-                            if (!(chunk in this.loadedChunks)) {
-                                missingChunks.push(chunk);
-                            }
-                        }
-                        return missingChunks;
-                    };
-                    var subStream = new ChunkedStreamSubstream();
-                    subStream.pos = subStream.start = start;
-                    subStream.end = start + length || this.end;
-                    subStream.dict = dict;
-                    return subStream;
-                }
-
+        onReceiveInitialData: function(data) {
+            this.bytes.set(data);
+            this.initialDataLength = data.length;
+            var endChunk = this.end === data.length ?
+                this.numChunks : Math.floor(data.length / this.chunkSize);
+            for (var i = 0; i < endChunk; i++) {
+                this.loadedChunks[i] = true;
+                ++this.numChunksLoaded;
             }
         },
-        "-constructor-": {
-            "initialize": [
 
-                function() {
-                    this.overload("");
-                },
+        ensureRange: function ChunkedStream_ensureRange(begin, end) {
+            if (begin >= end) {
+                return;
+            }
 
-                function( /*String*/ str) {
-                    var length = str.length;
-                    var bytes = new Uint8Array(length);
-                    for (var n = 0; n < length; ++n)
-                        bytes[n] = str.charCodeAt(n);
-                    this.overrided(bytes);
+            if (end <= this.initialDataLength) {
+                return;
+            }
+
+            var chunkSize = this.chunkSize;
+            var beginChunk = Math.floor(begin / chunkSize);
+            var endChunk = Math.floor((end - 1) / chunkSize) + 1;
+            for (var chunk = beginChunk; chunk < endChunk; ++chunk) {
+                if (!(chunk in this.loadedChunks)) {
+                    throw new MissingDataException(begin, end);
                 }
-            ]
+            }
+        },
 
+        nextEmptyChunk: function ChunkedStream_nextEmptyChunk(beginChunk) {
+            for (var chunk = beginChunk, n = this.numChunks; chunk < n; ++chunk) {
+                if (!(chunk in this.loadedChunks)) {
+                    return chunk;
+                }
+            }
+            // Wrap around to beginning
+            for (var chunk = 0; chunk < beginChunk; ++chunk) {
+                if (!(chunk in this.loadedChunks)) {
+                    return chunk;
+                }
+            }
+            return null;
+        },
+
+        hasChunk: function ChunkedStream_hasChunk(chunk) {
+            return chunk in this._.loadedChunks;
+        },
+
+        getByte: function ChunkedStream_getByte() {
+            var pos = this.pos;
+            if (pos >= this.end) {
+                return -1;
+            }
+            this.ensureRange(pos, pos + 1);
+            return this.bytes[this.pos++];
+        },
+
+        // returns subarray of original buffer
+        // should only be read
+        getBytes: function ChunkedStream_getBytes(length) {
+            var bytes = this.bytes;
+            var pos = this.pos;
+            var strEnd = this.end;
+
+            if (!length) {
+                this.ensureRange(pos, strEnd);
+                return bytes.subarray(pos, strEnd);
+            }
+
+            var end = pos + length;
+            if (end > strEnd)
+                end = strEnd;
+            this.ensureRange(pos, end);
+
+            this.pos = end;
+            return bytes.subarray(pos, end);
+        },
+
+        peekBytes: function ChunkedStream_peekBytes(length) {
+            var bytes = this.getBytes(length);
+            this.pos -= bytes.length;
+            return bytes;
+        },
+
+        getByteRange: function ChunkedStream_getBytes(begin, end) {
+            this.ensureRange(begin, end);
+            return this.bytes.subarray(begin, end);
+        },
+
+        skip: function ChunkedStream_skip(n) {
+            if (!n)
+                n = 1;
+            this.pos += n;
+        },
+
+        reset: function ChunkedStream_reset() {
+            this.pos = this.start;
+        },
+
+        moveStart: function ChunkedStream_moveStart() {
+            this.start = this.pos;
+        },
+
+        makeSubStream: function ChunkedStream_makeSubStream(start, length, dict) {
+            function ChunkedStreamSubstream() {}
+            ChunkedStreamSubstream.prototype = Object.create(this);
+            ChunkedStreamSubstream.prototype.getMissingChunks = function() {
+                var chunkSize = this.chunkSize;
+                var beginChunk = Math.floor(this.start / chunkSize);
+                var endChunk = Math.floor((this.end - 1) / chunkSize) + 1;
+                var missingChunks = [];
+                for (var chunk = beginChunk; chunk < endChunk; ++chunk) {
+                    if (!(chunk in this.loadedChunks)) {
+                        missingChunks.push(chunk);
+                    }
+                }
+                return missingChunks;
+            };
+            var subStream = new ChunkedStreamSubstream();
+            subStream.pos = subStream.start = start;
+            subStream.end = start + length || this.end;
+            subStream.dict = dict;
+            return subStream;
         }
-
     });
 
     return ChunkedStream;
@@ -4212,7 +4185,7 @@ define('skylark-data-streams/DecryptStream',[
             this.str = str;
             this.dict = str.dict;
             this.decrypt = decrypt;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {
@@ -4249,7 +4222,7 @@ define('skylark-data-streams/FakeStream',[
 
         init : function(stream) {
             this.dict = stream.dict;
-            this.overrided();          
+            Stream.prototype.init.call(this);          
         },
 
         readBlock : function() {
@@ -4411,7 +4384,7 @@ define('skylark-data-streams/FlateStream',[
 
             this.codeSize = 0;
             this.codeBuf = 0;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         getBits : function(bits) {
@@ -4671,7 +4644,7 @@ define('skylark-data-streams/LZWStream',[
                 lzwState.dictionaryLengths[i] = 1;
             }
             this.lzwState = lzwState;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBits : function(n) {
@@ -4809,7 +4782,7 @@ define('skylark-data-streams/PredictorStream',[
 
             this.pixBytes = (colors * bits + 7) >> 3;
             this.rowBytes = (columns * colors * bits + 7) >> 3;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlockTiff : function () {
@@ -4975,7 +4948,7 @@ define('skylark-data-streams/StreamsSequenceStream',[
 
         init : function(streams) {
             this.dict = stream.dict;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {
@@ -5012,7 +4985,7 @@ define('skylark-data-streams/StringStream',[
             var bytes = new Uint8Array(length);
             for (var n = 0; n < length; ++n)
                 bytes[n] = str.charCodeAt(n);
-            this.overrided(bytes);          
+            DecodeStream.prototype.init.call(this);          
         }
     });
 

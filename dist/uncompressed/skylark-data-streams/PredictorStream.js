@@ -31,7 +31,7 @@ define([
 
             this.pixBytes = (colors * bits + 7) >> 3;
             this.rowBytes = (columns * colors * bits + 7) >> 3;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlockTiff : function () {

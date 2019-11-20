@@ -30,7 +30,7 @@ define([
                 lzwState.dictionaryLengths[i] = 1;
             }
             this.lzwState = lzwState;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBits : function(n) {

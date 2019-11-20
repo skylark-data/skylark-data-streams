@@ -13,7 +13,7 @@ define([
             this.dict = str.dict;
             this.input = new Uint8Array(5);
 
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {

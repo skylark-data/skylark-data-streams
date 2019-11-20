@@ -123,7 +123,7 @@ define([
 
             this.codeSize = 0;
             this.codeBuf = 0;
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         getBits : function(bits) {

@@ -38,7 +38,7 @@ define([
             this.str = str;
             this.dict = str.dict;
 
-            this.overrided();          
+            DecodeStream.prototype.init.call(this);          
         },
 
         readBlock : function() {

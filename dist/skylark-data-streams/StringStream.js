@@ -5,5 +5,5 @@
  * @link www.skylarkjs.org
  * @license MIT
  */
-define(["skylark-langx/skylark","skylark-langx/langx","./streams","./Stream"],function(r,a,n,t){var e=t.inherit({klassName:"StringStream",init:function(r){for(var a=r.length,n=new Uint8Array(a),t=0;t<a;++t)n[t]=r.charCodeAt(t);this.overrided(n)}});return stream.StringStream=e});
+define(["skylark-langx/skylark","skylark-langx/langx","./streams","./Stream"],function(r,t,a,e){var n=e.inherit({klassName:"StringStream",init:function(r){for(var t=r.length,a=new Uint8Array(t),e=0;e<t;++e)a[e]=r.charCodeAt(e);DecodeStream.prototype.init.call(this)}});return stream.StringStream=n});
 //# sourceMappingURL=sourcemaps/StringStream.js.map
