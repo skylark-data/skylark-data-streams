@@ -1,4 +1,4 @@
-# skylark-data-streams
+# skylark-io-streams
 The stream features enhancement for skylark utils.
 
 ## Dependences
@@ -13,10 +13,10 @@ builds are in the directory dist.
 
 |                      | build                                    | Description              |
 | -------------------- | ---------------------------------------- | ------------------------ |
-| full                 | skylark-data-streams-all.js              | included dependences     |
-| only                 | skylark-data-streams.js                  | not included dependences |
-| full （development） | uncompressed/skylark-data-streams-all.js | included dependences     |
-| only （development） | uncompressed/skylark-data-streams.js     | not included dependences |
+| full                 | skylark-io-streams-all.js              | included dependences     |
+| only                 | skylark-io-streams.js                  | not included dependences |
+| full （development） | uncompressed/skylark-io-streams-all.js | included dependences     |
+| only （development） | uncompressed/skylark-io-streams.js     | not included dependences |
 
 Please use the "full" version when using this library alone, and use the "only" version when using other skylark libraries.
 
@@ -24,9 +24,9 @@ Please use the "full" version when using this library alone, and use the "only" 
 
 You can get the latest version in many different ways:
 
-- Downloading [a ZIP file from master](https://github.com/skylark-data/skylark-data-streams/archive/master.zip)
-- Cloning using Git: `git clone https://github.com/skylark-data/skylark-data-streams.git`
-- Installing via NPM: `npm install https://github.com/skylark-data/skylark-data-streams.git#master --save`
+- Downloading [a ZIP file from master](https://github.com/skylark-io/skylark-io-streams/archive/master.zip)
+- Cloning using Git: `git clone https://github.com/skylark-io/skylark-io-streams.git`
+- Installing via NPM: `npm install https://github.com/skylark-io/skylark-io-streams.git#master --save`
 
 ## Building 
 
