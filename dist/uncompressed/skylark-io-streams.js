@@ -87,134 +87,19 @@
 })(function(define,require) {
 
 define('skylark-io-streams/streams',[
-    "skylark-langx/skylark"
+    "skylark-langx-ns"
 ], function(skylark) {
 
-    return skylark.attach("data.streams",{});
-});
-
-define('skylark-io-streams/_stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
-    "./streams"
-], function(skylark, langx,streams) {
-
-   	var Stream = langx.Evented.inherit({
-        klassName: "Stream",
-        
-        _construct: function(arrayBuffer, start, length, dict) {
-            this.bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
-            this.start = start || 0;
-            this.pos = this.start;
-            this.end = start + length || this.bytes.length;
-            this.dict = dict;
-        },
-
-
-        length : {
-        	get : function() {
-                return this.end - this.start;
-        	}
-        },
-
-        getByte: function () {
-            if (this.pos >= this.end) {
-                return -1;
-            }
-            return this.bytes[this.pos++];
-        },
-
-        getUint16: function Stream_getUint16() {
-            var b0 = this.getByte();
-            var b1 = this.getByte();
-            if (b0 === -1 || b1 === -1) {
-                return -1;
-            }
-            return (b0 << 8) + b1;
-        },
-
-        getInt32: function Stream_getInt32() {
-            var b0 = this.getByte();
-            var b1 = this.getByte();
-            var b2 = this.getByte();
-            var b3 = this.getByte();
-            return (b0 << 24) + (b1 << 16) + (b2 << 8) + b3;
-        },
-
-        getBytes(length, forceClamped = false) {
-            var bytes = this.bytes;
-            var pos = this.pos;
-            var strEnd = this.end;
-            if (!length) {
-                const subarray = bytes.subarray(pos, strEnd);
-                return forceClamped ? new Uint8ClampedArray(subarray) : subarray;
-            }
-            var end = pos + length;
-            if (end > strEnd) {
-                end = strEnd;
-            }
-            this.pos = end;
-            const subarray = bytes.subarray(pos, end);
-            return forceClamped ? new Uint8ClampedArray(subarray) : subarray;
-        },
-
-        peekByte: function Stream_peekByte() {
-            var peekedByte = this.getByte();
-            if (peekedByte !== -1) {
-                this.pos--;
-            }
-            return peekedByte;
-        },
-
-        peekBytes(length, forceClamped = false) {
-            var bytes = this.getBytes(length, forceClamped);
-            this.pos -= bytes.length;
-            return bytes;
-        },
-
-        getByteRange(begin, end) {
-            if (begin < 0) {
-                begin = 0;
-            }
-            if (end > this.end) {
-                end = this.end;
-            }
-            return this.bytes.subarray(begin, end);
-        },
-
-        skip: function Stream_skip(n) {
-            if (!n) {
-                n = 1;
-            }
-            this.pos += n;
-        },
-
-        reset: function Stream_reset() {
-            this.pos = this.start;
-        },
-
-        moveStart: function Stream_moveStart() {
-            this.start = this.pos;
-        },
-        
-        makeSubStream: function Stream_makeSubStream(start, length, dict) {
-            return new Stream(this.bytes.buffer, start, length, dict);
-        }
-    });
-    
-    return streams.Stream = Stream;
-	
+    return skylark.attach("io.streams");
 });
 
 define('skylark-io-streams/decode-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
+    "skylark-langx-events",
     "skylark-langx-chars",
-    "./streams",
-    "./_stream"
-], function(skylark, langx, chars, streams, Stream) {
+    "./streams"
+], function(events, chars, streams) {
 
-    var DecodeStream = Stream.inherit({
+    var DecodeStream = events.Evented.inherit({
         klassName : "DecodeStream",
 
         _construct : function(maybeMinBufferLength) {
@@ -352,12 +237,10 @@ define('skylark-io-streams/decode-stream',[
 });
 
 define('skylark-io-streams/ascii85-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "skylark-langx-chars",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, chars, streams, DecodeStream) {
+], function(chars, streams, DecodeStream) {
 
 
     var Ascii85Stream = DecodeStream.inherit({
@@ -433,11 +316,9 @@ define('skylark-io-streams/ascii85-stream',[
 });
 
 define('skylark-io-streams/ascii-hex-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
 
     var AsciiHexStream = DecodeStream.inherit({
         klassName : "AsciiHexStream",
@@ -495,12 +376,122 @@ define('skylark-io-streams/ascii-hex-stream',[
     return streams.AsciiHexStream = AsciiHexStream;
 });
 
+define('skylark-io-streams/_stream',[
+    "skylark-langx-events",
+    "./streams"
+], function(events,streams) {
+
+   	var Stream = events.Evented.inherit({
+        klassName: "Stream",
+        
+        _construct: function(arrayBuffer, start, length, dict) {
+            this.bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
+            this.start = start || 0;
+            this.pos = this.start;
+            this.end = start + length || this.bytes.length;
+            this.dict = dict;
+        },
+
+
+        length : {
+        	get : function() {
+                return this.end - this.start;
+        	}
+        },
+
+        getByte: function () {
+            if (this.pos >= this.end) {
+                return -1;
+            }
+            return this.bytes[this.pos++];
+        },
+
+        getUint16: function Stream_getUint16() {
+            var b0 = this.getByte();
+            var b1 = this.getByte();
+            if (b0 === -1 || b1 === -1) {
+                return -1;
+            }
+            return (b0 << 8) + b1;
+        },
+
+        getInt32: function Stream_getInt32() {
+            var b0 = this.getByte();
+            var b1 = this.getByte();
+            var b2 = this.getByte();
+            var b3 = this.getByte();
+            return (b0 << 24) + (b1 << 16) + (b2 << 8) + b3;
+        },
+
+        getBytes(length, forceClamped = false) {
+            var bytes = this.bytes;
+            var pos = this.pos;
+            var strEnd = this.end;
+            if (!length) {
+                const subarray = bytes.subarray(pos, strEnd);
+                return forceClamped ? new Uint8ClampedArray(subarray) : subarray;
+            }
+            var end = pos + length;
+            if (end > strEnd) {
+                end = strEnd;
+            }
+            this.pos = end;
+            const subarray = bytes.subarray(pos, end);
+            return forceClamped ? new Uint8ClampedArray(subarray) : subarray;
+        },
+
+        peekByte: function Stream_peekByte() {
+            var peekedByte = this.getByte();
+            if (peekedByte !== -1) {
+                this.pos--;
+            }
+            return peekedByte;
+        },
+
+        peekBytes(length, forceClamped = false) {
+            var bytes = this.getBytes(length, forceClamped);
+            this.pos -= bytes.length;
+            return bytes;
+        },
+
+        getByteRange(begin, end) {
+            if (begin < 0) {
+                begin = 0;
+            }
+            if (end > this.end) {
+                end = this.end;
+            }
+            return this.bytes.subarray(begin, end);
+        },
+
+        skip: function Stream_skip(n) {
+            if (!n) {
+                n = 1;
+            }
+            this.pos += n;
+        },
+
+        reset: function Stream_reset() {
+            this.pos = this.start;
+        },
+
+        moveStart: function Stream_moveStart() {
+            this.start = this.pos;
+        },
+        
+        makeSubStream: function Stream_makeSubStream(start, length, dict) {
+            return new Stream(this.bytes.buffer, start, length, dict);
+        }
+    });
+    
+    return streams.Stream = Stream;
+	
+});
+
 define('skylark-io-streams/chunked-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./_stream"
-], function(skylark, langx,streams,Stream) {
+], function(streams,Stream) {
 
 
     var ChunkedStream = Stream.inherit({
@@ -696,13 +687,10 @@ define('skylark-io-streams/chunked-stream',[
 
 });
 
-
 define('skylark-io-streams/decrypt-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
 
     var chunkSize = 512;
 
@@ -749,13 +737,10 @@ define('skylark-io-streams/decrypt-stream',[
     return streams.DecryptStream = DecryptStream;
 });
 
-
 define('skylark-io-streams/fake-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
 
     var FakeStream = DecodeStream.inherit({
         klassName : "FakeStream",
@@ -799,13 +784,11 @@ define('skylark-io-streams/fake-stream',[
     return streams.FakeStream = FakeStream;
 });
 
-
 define('skylark-io-streams/flate-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
+    
     var codeLenCodeMap = new Int32Array([
         16,
         17,
@@ -1692,11 +1675,9 @@ define('skylark-io-streams/flate-stream',[
 });
 
 define('skylark-io-streams/lzw-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
 
     var LZWStream = DecodeStream.inherit({
         klassName : "LZWStream",
@@ -1821,11 +1802,9 @@ define('skylark-io-streams/lzw-stream',[
 });
 
 define('skylark-io-streams/null-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./_stream"
-], function(skylark, langx, streams, Stream) {
+], function( streams, Stream) {
 
     var NullStream = Stream.inherit({
         klassName : "NullStream",
@@ -1840,13 +1819,10 @@ define('skylark-io-streams/null-stream',[
 
 });
 
-
 define('skylark-io-streams/predictor-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
 
 
     var PredictorStream = DecodeStream.inherit({
@@ -2040,12 +2016,10 @@ define('skylark-io-streams/predictor-stream',[
 });
 
 define('skylark-io-streams/run-length-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "skylark-langx-chars",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, chars, streams, DecodeStream) {
+], function(chars, streams, DecodeStream) {
 
     var RunLengthStream = DecodeStream.inherit({
         klassName : "RunLengthStream",
@@ -2090,12 +2064,10 @@ define('skylark-io-streams/run-length-stream',[
 });
 
 define('skylark-io-streams/streams-sequence-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "skylark-langx-chars",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, chars, streams, DecodeStream) {
+], function(chars, streams, DecodeStream) {
 
 
     var StreamsSequenceStream = DecodeStream.inherit({
@@ -2147,11 +2119,9 @@ define('skylark-io-streams/streams-sequence-stream',[
 });
 
 define('skylark-io-streams/string-stream',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./_stream"
-], function(skylark, langx, streams, Stream) {
+], function(streams, Stream) {
 
     var StringStream = Stream.inherit({
         klassName : "StringStream",

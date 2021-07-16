@@ -1,12 +1,10 @@
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
+    "skylark-langx-events",
     "skylark-langx-chars",
-    "./streams",
-    "./_stream"
-], function(skylark, langx, chars, streams, Stream) {
+    "./streams"
+], function(events, chars, streams) {
 
-    var DecodeStream = Stream.inherit({
+    var DecodeStream = events.Evented.inherit({
         klassName : "DecodeStream",
 
         _construct : function(maybeMinBufferLength) {

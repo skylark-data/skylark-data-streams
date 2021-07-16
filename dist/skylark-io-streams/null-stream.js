@@ -5,5 +5,5 @@
  * @link www.skylarkjs.org
  * @license MIT
  */
-define(["skylark-langx/skylark","skylark-langx/langx","./streams","./_stream"],function(r,t,a,n){var l=n.inherit({klassName:"NullStream",_construct:function(){n.prototype._construct.call(this,new Uint8Array(0))}});return a.NullStream=l});
+define(["./streams","./_stream"],function(t,r){var e=r.inherit({klassName:"NullStream",_construct:function(){r.prototype._construct.call(this,new Uint8Array(0))}});return t.NullStream=e});
 //# sourceMappingURL=sourcemaps/null-stream.js.map

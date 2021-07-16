@@ -1,10 +1,8 @@
-
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
+    
     var codeLenCodeMap = new Int32Array([
         16,
         17,

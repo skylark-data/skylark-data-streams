@@ -1,10 +1,7 @@
-
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
 
     var FakeStream = DecodeStream.inherit({
         klassName : "FakeStream",

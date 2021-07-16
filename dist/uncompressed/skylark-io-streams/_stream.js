@@ -1,10 +1,9 @@
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
+    "skylark-langx-events",
     "./streams"
-], function(skylark, langx,streams) {
+], function(events,streams) {
 
-   	var Stream = langx.Evented.inherit({
+   	var Stream = events.Evented.inherit({
         klassName: "Stream",
         
         _construct: function(arrayBuffer, start, length, dict) {

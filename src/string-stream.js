@@ -1,9 +1,7 @@
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./_stream"
-], function(skylark, langx, streams, Stream) {
+], function(streams, Stream) {
 
     var StringStream = Stream.inherit({
         klassName : "StringStream",

@@ -1,10 +1,8 @@
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "skylark-langx-chars",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, chars, streams, DecodeStream) {
+], function(chars, streams, DecodeStream) {
 
     var RunLengthStream = DecodeStream.inherit({
         klassName : "RunLengthStream",

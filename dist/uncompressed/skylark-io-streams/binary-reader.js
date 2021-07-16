@@ -1,10 +1,9 @@
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
+    "skylark-langx-events",
     "./streams"
-], function(skylark, langx,streams) {
+], function(events,streams) {
 
-   	var BinaryReader = langx.Evented.inherit({
+   	var BinaryReader = events.Evented.inherit({
 
 		_construct : function (arrayBuffer, isLittleEndian) 	{
 			this.arrayBuffer = arrayBuffer;

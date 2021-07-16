@@ -1,9 +1,7 @@
 define([
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
     "./streams",
     "./decode-stream"
-], function(skylark, langx, streams, DecodeStream) {
+], function(streams, DecodeStream) {
 
     var AsciiHexStream = DecodeStream.inherit({
         klassName : "AsciiHexStream",
