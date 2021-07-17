@@ -3,7 +3,7 @@ define([
     "./streams"
 ], function(events,streams) {
 
-   	var Stream = events.Evented.inherit({
+   	var Stream = events.Emitter.inherit({
         klassName: "Stream",
         
         _construct: function(arrayBuffer, start, length, dict) {

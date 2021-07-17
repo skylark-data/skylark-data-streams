@@ -99,7 +99,7 @@ define('skylark-io-streams/decode-stream',[
     "./streams"
 ], function(events, chars, streams) {
 
-    var DecodeStream = events.Evented.inherit({
+    var DecodeStream = events.Emitter.inherit({
         klassName : "DecodeStream",
 
         _construct : function(maybeMinBufferLength) {
@@ -381,7 +381,7 @@ define('skylark-io-streams/_stream',[
     "./streams"
 ], function(events,streams) {
 
-   	var Stream = events.Evented.inherit({
+   	var Stream = events.Emitter.inherit({
         klassName: "Stream",
         
         _construct: function(arrayBuffer, start, length, dict) {
@@ -747,7 +747,7 @@ define('skylark-io-streams/fake-stream',[
 
         _construct : function(stream) {
             this.dict = stream.dict;
-            Stream.prototype._construct.call(this);          
+            DecodeStream.prototype._construct.call(this);          
         },
 
         readBlock : function() {
@@ -1454,7 +1454,7 @@ define('skylark-io-streams/flate-stream',[
             this.codeSize = 0;
             this.codeBuf = 0;
 
-            DecodeStream.prototype.call(this, maybeLength);
+            DecodeStream.prototype._construct.call(this, maybeLength);
         },
 
         getBits : function FlateStream_getBits(bits) {

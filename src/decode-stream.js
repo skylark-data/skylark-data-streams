@@ -4,7 +4,7 @@ define([
     "./streams"
 ], function(events, chars, streams) {
 
-    var DecodeStream = events.Evented.inherit({
+    var DecodeStream = events.Emitter.inherit({
         klassName : "DecodeStream",
 
         _construct : function(maybeMinBufferLength) {

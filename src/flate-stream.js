@@ -668,7 +668,7 @@ define([
             this.codeSize = 0;
             this.codeBuf = 0;
 
-            DecodeStream.prototype.call(this, maybeLength);
+            DecodeStream.prototype._construct.call(this, maybeLength);
         },
 
         getBits : function FlateStream_getBits(bits) {

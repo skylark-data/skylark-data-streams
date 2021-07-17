@@ -3,7 +3,7 @@ define([
     "./streams"
 ], function(events,streams) {
 
-   	var BinaryReader = events.Evented.inherit({
+   	var BinaryReader = events.Emitter.inherit({
 
 		_construct : function (arrayBuffer, isLittleEndian) 	{
 			this.arrayBuffer = arrayBuffer;

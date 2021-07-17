@@ -8,7 +8,7 @@ define([
 
         _construct : function(stream) {
             this.dict = stream.dict;
-            Stream.prototype._construct.call(this);          
+            DecodeStream.prototype._construct.call(this);          
         },
 
         readBlock : function() {
