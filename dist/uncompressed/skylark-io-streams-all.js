@@ -2857,6 +2857,8 @@ define('skylark-io-streams/decode-stream',[
     "skylark-langx-chars",
     "./streams"
 ], function(events, chars, streams) {
+    var emptyBuffer = new Uint8Array(0);
+
 
     var DecodeStream = events.Emitter.inherit({
         klassName : "DecodeStream",
