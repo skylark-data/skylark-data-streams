@@ -28,6 +28,27 @@
     "skylark-langx-events": "git+https://github.com/skylark-langx/skylark-langx-events.git",
     "skylark-langx-ns": "git+https://github.com/skylark-langx/skylark-langx-ns.git"
   },
+  "skylarkjs": {
+    "directories": {
+      "dependencies": "./node_modules"
+    },
+    "secondaries": {},
+    "build": {
+      "prepare": {
+        "texttojs": [
+          "html",
+          "json",
+          "css"
+        ],
+        "jsxtojs": false,
+        "es6toamd": false,
+        "cjstoamd": false
+      },
+      "bundles": {
+        "all": true
+      }
+    }
+  },
   "engines": {
     "node": ">=0.8.0"
   }
