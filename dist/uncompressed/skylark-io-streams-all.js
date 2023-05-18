@@ -101,19 +101,26 @@ define('skylark-langx-ns/_attach',[],function(){
             name = path[i++];
         }
 
-        ns[name] = obj2 || {};
+        if (ns[name]) {
+            if (obj2) {
+                throw new Error("This namespace already exists:" + path);
+            }
+
+        } else {
+            ns[name] = obj2 || {};
+        }
         return ns[name];
     }
 });
 define('skylark-langx-ns/ns',[
     "./_attach"
 ], function(_attach) {
-    var skylark = {
+    var root = {
     	attach : function(path,obj) {
-    		return _attach(skylark,path,obj);
+    		return _attach(root,path,obj);
     	}
     };
-    return skylark;
+    return root;
 });
 
 define('skylark-langx-ns/main',[
@@ -316,8 +323,8 @@ define('skylark-langx-types/types',[
      * // => false
      */
     function isSymbol(value) {
-      return typeof value == 'symbol' ||
-        (isObjectLike(value) && objectToString.call(value) == symbolTag);
+      return typeof value == 'symbol' ;
+       //|| (isObjectLike(value) && objectToString.call(value) == symbolTag); // modified by lwf
     }
 
     // Is a given variable undefined?
@@ -485,6 +492,8 @@ define('skylark-langx-types/types',[
 
         isHtmlNode: isHtmlNode,
 
+        isInstanceOf,
+
         isNaN : function (obj) {
             return isNaN(obj);
         },
@@ -557,134 +566,245 @@ define('skylark-langx-objects/objects',[
     "skylark-langx-ns",
     "skylark-langx-types"
 ],function(skylark,types){
-    var hasOwnProperty = Object.prototype.hasOwnProperty,
-        slice = Array.prototype.slice,
-        isBoolean = types.isBoolean,
-        isFunction = types.isFunction,
-        isObject = types.isObject,
-        isPlainObject = types.isPlainObject,
-        isArray = types.isArray,
-        isArrayLike = types.isArrayLike,
-        isString = types.isString,
-        toInteger = types.toInteger;
 
-     // An internal function for creating assigner functions.
-    function createAssigner(keysFunc, defaults) {
-        return function(obj) {
-          var length = arguments.length;
-          if (defaults) obj = Object(obj);  
-          if (length < 2 || obj == null) return obj;
-          for (var index = 1; index < length; index++) {
-            var source = arguments[index],
-                keys = keysFunc(source),
-                l = keys.length;
-            for (var i = 0; i < l; i++) {
-              var key = keys[i];
-              if (!defaults || obj[key] === void 0) obj[key] = source[key];
-            }
-          }
-          return obj;
-       };
-    }
+    return skylark.attach("langx.objects",{
+        attach : skylark.attach
+    });
 
+});
+define('skylark-langx-objects/all-keys',[
+    "skylark-langx-types",
+    "./objects"
+],function(types,objects){
 
     // Retrieve all the property names of an object.
     function allKeys(obj) {
-        if (!isObject(obj)) return [];
+        if (!types.isObject(obj)) return [];
         var keys = [];
         for (var key in obj) keys.push(key);
         return keys;
     }
 
-    // Retrieve the names of an object's own properties.
-    // Delegates to **ECMAScript 5**'s native `Object.keys`.
-    function keys(obj) {
-        if (isObject(obj)) return [];
-        var keys = [];
-        for (var key in obj) if (has(obj, key)) keys.push(key);
-        return keys;
-    }
+    return objects.allKeys = allKeys;
 
-    function has(obj, path) {
-        if (!isArray(path)) {
-            return obj != null && hasOwnProperty.call(obj, path);
-        }
-        var length = path.length;
-        for (var i = 0; i < length; i++) {
-            var key = path[i];
-            if (obj == null || !hasOwnProperty.call(obj, key)) {
-                return false;
-            }
-            obj = obj[key];
-        }
-        return !!length;
-    }
+});
+define('skylark-langx-objects/assign',[
+	"skylark-langx-types",
+	"./objects"
+],function(types,objects) {
+
+	return objects.assign = Object.assign;
+});
+define('skylark-langx-objects/to-key',[
+	"skylark-langx-types",
+	"./objects"
+],function(types,objects) {
+
+	const isSymbol = types.isSymbol,
+		  isString = types.isString;
+
+	/** Used as references for various `Number` constants. */
+	const INFINITY = 1 / 0
+
+	/**
+	 * Converts `value` to a string key if it's not a string or symbol.
+	 *
+	 * @private
+	 * @param {*} value The value to inspect.
+	 * @returns {string|symbol} Returns the key.
+	 */
+	function toKey(value) {
+	  if (isString(value) || isSymbol(value)) {
+	    return value
+	  }
+	  const result = `${value}`
+	  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result
+	}
+
+	return objects.toKey = toKey;
+
+});
+define('skylark-langx-objects/is-key',[
+	"skylark-langx-types",
+	"./objects"
+],function(types,objects) {
+
+	const isSymbol = types.isSymbol,
+		  isArray = types.isArray;
+
+	/** Used to match property names within property paths. */
+	const reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/
+	const reIsPlainProp = /^\w*$/
+
+	/**
+	 * Checks if `value` is a property name and not a property path.
+	 *
+	 * @private
+	 * @param {*} value The value to check.
+	 * @param {Object} [object] The object to query keys on.
+	 * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
+	 */
+	function isKey(value, object) {
+	  if (isArray(value)) {
+	    return false
+	  }
+	  const type = typeof value
+	  if (type === 'number' || type === 'boolean' || value == null || isSymbol(value)) {
+	    return true
+	  }
+	  return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
+	    (object != null && value in Object(object))
+	}
+
+	return objects.isKey = isKey;
+});
+define('skylark-langx-objects/_cast_path',[
+	"skylark-langx-types",
+	"./objects",
+	"./is-key"
+],function(types,objects,isKey) {
+	const charCodeOfDot = '.'.charCodeAt(0)
+	const reEscapeChar = /\\(\\)?/g
+	const rePropName = RegExp(
+	  // Match anything that isn't a dot or bracket.
+	  '[^.[\\]]+' + '|' +
+	  // Or match property names within brackets.
+	  '\\[(?:' +
+	    // Match a non-string expression.
+	    '([^"\'][^[]*)' + '|' +
+	    // Or match strings (supports escaping characters).
+	    '(["\'])((?:(?!\\2)[^\\\\]|\\\\.)*?)\\2' +
+	  ')\\]'+ '|' +
+	  // Or match "" as the space between consecutive dots or empty brackets.
+	  '(?=(?:\\.|\\[\\])(?:\\.|\\[\\]|$))'
+	  , 'g')
+
+	/**
+	 * Converts `string` to a property path array.
+	 *
+	 * @private
+	 * @param {string} string The string to convert.
+	 * @returns {Array} Returns the property path array.
+	 */
+	const stringToPath = ((string) => {
+	  const result = []
+	  if (string.charCodeAt(0) === charCodeOfDot) {
+	    result.push('')
+	  }
+	  string.replace(rePropName, (match, expression, quote, subString) => {
+	    let key = match
+	    if (quote) {
+	      key = subString.replace(reEscapeChar, '$1')
+	    }
+	    else if (expression) {
+	      key = expression.trim()
+	    }
+	    result.push(key)
+	  })
+	  return result
+	});
+
+	/**
+	 * Casts `value` to a path array if it's not one.
+	 *
+	 * @private
+	 * @param {*} value The value to inspect.
+	 * @param {Object} [object] The object to query keys on.
+	 * @returns {Array} Returns the cast property path array.
+	 */
+	function castPath(value, object) {
+	  if (types.isArray(value)) {
+	    return value
+	  }
+	  return isKey(value, object) ? [value] : stringToPath(value)
+	}
+
+	return castPath;
+});
+define('skylark-langx-objects/get',[
+	"skylark-langx-types",
+	"./objects",
+	"./to-key",
+	"./_cast_path"
+],function(types,objects,toKey,castPath) {
+
+	/**
+	 * The base implementation of `get` without support for default values.
+	 *
+	 * @private
+	 * @param {Object} object The object to query.
+	 * @param {Array|string} path The path of the property to get.
+	 * @returns {*} Returns the resolved value.
+	 */
+	function baseGet(object, path) {
+	  path = castPath(path, object)
+
+	  let index = 0
+	  const length = path.length
+
+	  while (object != null && index < length) {
+	    object = object[toKey(path[index++])]
+	  }
+	  return (index && index == length) ? object : undefined
+	}
 
 
-    // Returns whether an object has a given set of `key:value` pairs.
-    function isMatch(object, attrs) {
-        var keys = keys(attrs), length = keys.length;
-        if (object == null) return !length;
-        var obj = Object(object);
-        for (var i = 0; i < length; i++) {
-          var key = keys[i];
-          if (attrs[key] !== obj[key] || !(key in obj)) return false;
-        }
-        return true;
-    }    
+	/**
+	 * Gets the value at `path` of `object`. If the resolved value is
+	 * `undefined`, the `defaultValue` is returned in its place.
+	 *
+	 * @since 3.7.0
+	 * @category Object
+	 * @param {Object} object The object to query.
+	 * @param {Array|string} path The path of the property to get.
+	 * @param {*} [defaultValue] The value returned for `undefined` resolved values.
+	 * @returns {*} Returns the resolved value.
+	 * @see has, hasIn, set, unset
+	 * @example
+	 *
+	 * const object = { 'a': [{ 'b': { 'c': 3 } }] }
+	 *
+	 * get(object, 'a[0].b.c')
+	 * // => 3
+	 *
+	 * get(object, ['a', '0', 'b', 'c'])
+	 * // => 3
+	 *
+	 * get(object, 'a.b.c', 'default')
+	 * // => 'default'
+	 */
+	function get(object, path, defaultValue) {
+	  const result = object == null ? undefined : baseGet(object, path)
+	  return result === undefined ? defaultValue : result
+	}
 
+	return objects.get = get;
+});
+define('skylark-langx-objects/base-at',[
+	"./objects",
+	"./get"
+],function(objects,get) {
 
-    function removeItem(items, item) {
-        if (isArray(items)) {
-            var idx = items.indexOf(item);
-            if (idx != -1) {
-                items.splice(idx, 1);
-            }
-        } else if (isPlainObject(items)) {
-            for (var key in items) {
-                if (items[key] == item) {
-                    delete items[key];
-                    break;
-                }
-            }
-        }
+	/**
+	 * The base implementation of `at` without support for individual paths.
+	 *
+	 * @param {Object} object The object to iterate over.
+	 * @param {string[]} paths The property paths to pick.
+	 * @returns {Array} Returns the picked elements.
+	 */
+	function baseAt(object, paths) {
+	  let index = -1
+	  const length = paths.length
+	  const result = new Array(length)
+	  const skip = object == null
 
-        return this;
-    }
+	  while (++index < length) {
+	    result[index] = skip ? undefined : get(object, paths[index])
+	  }
+	  return result
+	}
 
-
-
-    // Retrieve the values of an object's properties.
-    function values(obj) {
-        var keys = allKeys(obj);
-        var length = keys.length;
-        var values = Array(length);
-        for (var i = 0; i < length; i++) {
-            values[i] = obj[keys[i]];
-        }
-        return values;
-    }
-
-
-    return skylark.attach("langx.objects",{
-        allKeys: allKeys,
-
-        attach : skylark.attach,
-
-        defaults : createAssigner(allKeys, true),
-
-        has: has,
-
-        isMatch: isMatch,
-
-        keys: keys,
-
-        removeItem: removeItem,
-
-        values: values
-    });
-
-
+	return objects.baseAt = baseAt;
 });
 define('skylark-langx-objects/clone',[
     "skylark-langx-types",
@@ -718,6 +838,31 @@ define('skylark-langx-objects/clone',[
     }
 
     return objects.clone = clone;
+});
+define('skylark-langx-objects/defaults',[
+    "./objects",
+    "./all-keys"
+],function(objects,allKeys){
+  // An internal function for creating assigner functions.
+  function createAssigner(keysFunc, defaults) {
+      return function(obj) {
+        var length = arguments.length;
+        if (defaults) obj = Object(obj);  
+        if (length < 2 || obj == null) return obj;
+        for (var index = 1; index < length; index++) {
+          var source = arguments[index],
+              keys = keysFunc(source),
+              l = keys.length;
+          for (var i = 0; i < l; i++) {
+            var key = keys[i];
+            if (!defaults || obj[key] === void 0) obj[key] = source[key];
+          }
+        }
+        return obj;
+     };
+  }
+  
+  return objects.defaults = createAssigner(allKeys, true);
 });
 define('skylark-langx-objects/each',[
     "./objects"
@@ -794,7 +939,8 @@ define('skylark-langx-objects/_parse_mixin_args',[
     "./objects"
 ],function(types,objects) {
 
-    var isBoolean = types.isBoolean;
+    var slice = Array.prototype.slice,
+        isBoolean = types.isBoolean;
 
     function _parseMixinArgs(args) {
         var params = slice.call(arguments, 0),
@@ -838,6 +984,7 @@ define('skylark-langx-objects/extend',[
     "./objects",
     "./mixin"
 ],function(objects,mixin) {
+    var slice = Array.prototype.slice;
 
     function extend(target) {
         var deep, args = slice.call(arguments, 1);
@@ -856,6 +1003,47 @@ define('skylark-langx-objects/extend',[
     }
 
     return objects.extend = extend;
+});
+define('skylark-langx-objects/for-each',[
+ 	"./objects",
+ 	"./each"
+],function(objects,each){
+
+    function forEach (obj, fn) {
+    	if (!obj) {
+    		return;
+    	}
+     	if (obj.forEach) {
+     		obj.forEach(fn);
+     	} else {
+     		each(obj,fn,true);
+     	}
+    }
+
+	return objects.forEach = forEach;
+});
+define('skylark-langx-objects/has',[
+    "skylark-langx-types",
+    "./objects"
+],function(types,objects){
+    var hasOwnProperty = Object.prototype.hasOwnProperty;
+
+    function has(obj, path) {
+        if (!types.isArray(path)) {
+            return obj != null && hasOwnProperty.call(obj, path);
+        }
+        var length = path.length;
+        for (var i = 0; i < length; i++) {
+            var key = path[i];
+            if (obj == null || !hasOwnProperty.call(obj, key)) {
+                return false;
+            }
+            obj = obj[key];
+        }
+        return !!length;
+    }
+
+    return objects.has = has;
 });
 define('skylark-langx-objects/includes',[
     "./objects"
@@ -1031,9 +1219,47 @@ define('skylark-langx-objects/is-equal',[
     return objects.isEqual = isEqual;
 	
 });
+define('skylark-langx-objects/keys',[
+    "skylark-langx-types",
+    "./objects",
+    "./has"
+],function(types,objects,has){
+
+    // Retrieve the names of an object's own properties.
+    // Delegates to **ECMAScript 5**'s native `Object.keys`.
+    function keys(obj) {
+        if (!types.isObject(obj)) return [];  
+        var keys = [];
+        for (var key in obj) if (has(obj, key)) keys.push(key);
+        return keys;
+    }
+
+    return objects.keys = keys;
+});
+define('skylark-langx-objects/is-match',[
+    "skylark-langx-types",
+    "./objects",
+    "./keys"
+],function(types,objects,keys) {
+
+    // Returns whether an object has a given set of `key:value` pairs.
+    function isMatch(object, attrs) {
+        var keys = keys(attrs), length = keys.length;
+        if (object == null) return !length;
+        var obj = Object(object);
+        for (var i = 0; i < length; i++) {
+          var key = keys[i];
+          if (attrs[key] !== obj[key] || !(key in obj)) return false;
+        }
+        return true;
+    }    
+
+    return objects.isMatch = isMatch;
+});
 define('skylark-langx-objects/omit',[
-    "./objects"
-],function(objects) {
+    "./objects",
+    "./mixin"
+],function(objects,mixin) {
 
    // Return a copy of the object without the blacklisted properties.
     function omit(obj, prop1,prop2) {
@@ -1074,35 +1300,89 @@ define('skylark-langx-objects/pick',[
     
     return objects.pick = pick;
 });
+define('skylark-langx-objects/remove-items',[
+    "skylark-langx-types",
+    "./objects"
+],function(types,objects){
+    function removeItem(items, item) {
+        if (types.isArray(items)) {
+            var idx = items.indexOf(item);
+            if (idx != -1) {
+                items.splice(idx, 1);
+            }
+        } else if (types.isPlainObject(items)) {
+            for (var key in items) {
+                if (items[key] == item) {
+                    delete items[key];
+                    break;
+                }
+            }
+        }
+
+        return this;
+    }
+
+    return objects.removeItem = removeItem;
+});
 define('skylark-langx-objects/result',[
-	"skylark-langx-types",
-	"./objects"
-],function(types,objects) {
+  "skylark-langx-types",
+  "./objects",
+  "./to-key",
+  "./_cast_path"
+],function(types,objects,toKey,castPath) {
 	var isArray = types.isArray,
 		isFunction = types.isFunction;
 
-    function result(obj, path, fallback) {
-        if (!isArray(path)) {
-            path = path.split(".");//[path]
-        };
-        var length = path.length;
-        if (!length) {
-          return isFunction(fallback) ? fallback.call(obj) : fallback;
-        }
-        for (var i = 0; i < length; i++) {
-          var prop = obj == null ? void 0 : obj[path[i]];
-          if (prop === void 0) {
-            prop = fallback;
-            i = length; // Ensure we don't continue iterating.
-          }
-          obj = isFunction(prop) ? prop.call(obj) : prop;
-        }
+  /**
+   * This method is like `get` except that if the resolved value is a
+   * function it's invoked with the `this` binding of its parent object and
+   * its result is returned.
+   *
+   * @since 0.1.0
+   * @category Object
+   * @param {Object} object The object to query.
+   * @param {Array|string} path The path of the property to resolve.
+   * @param {*} [defaultValue] The value returned for `undefined` resolved values.
+   * @returns {*} Returns the resolved value.
+   * @example
+   *
+   * const object = { 'a': [{ 'b': { 'c1': 3, 'c2': () => 4 } }] }
+   *
+   * result(object, 'a[0].b.c1')
+   * // => 3
+   *
+   * result(object, 'a[0].b.c2')
+   * // => 4
+   *
+   * result(object, 'a[0].b.c3', 'default')
+   * // => 'default'
+   *
+   * result(object, 'a[0].b.c3', () => 'default')
+   * // => 'default'
+   */
+  function result(object, path, defaultValue) {
+    path = castPath(path, object)
 
-        return obj;
+    let index = -1
+    let length = path.length
+
+    // Ensure the loop is entered when path is empty.
+    if (!length) {
+      length = 1
+      object = undefined
     }
+    while (++index < length) {
+      let value = object == null ? undefined : object[toKey(path[index])]
+      if (value === undefined) {
+        index = length
+        value = defaultValue
+      }
+      object = isFunction(value) ? value.call(object) : value
+    }
+    return object
+  }
 
-    return objects.result = result;
-	
+  return objects.result = result;	
 });
 define('skylark-langx-objects/safe-mixin',[
 	"./objects",
@@ -1124,6 +1404,7 @@ define('skylark-langx-objects/safe-mixin',[
 define('skylark-langx-objects/scall',[
     "./objects"
 ],function(objects) {
+    const  slice = Array.prototype.slice;
 
     function scall(obj,method,arg1,arg2) {
         if (obj && obj[method]) {
@@ -1134,6 +1415,119 @@ define('skylark-langx-objects/scall',[
     }
 
     return objects.scall = scall;
+});
+define('skylark-langx-objects/is-index',[
+	"skylark-langx-types",
+	"./objects"
+],function(types,objects) {
+	/** Used as references for various `Number` constants. */
+	const MAX_SAFE_INTEGER = 9007199254740991
+
+	/** Used to detect unsigned integer values. */
+	const reIsUint = /^(?:0|[1-9]\d*)$/
+
+	/**
+	 * Checks if `value` is a valid array-like index.
+	 *
+	 * @private
+	 * @param {*} value The value to check.
+	 * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+	 * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+	 */
+	function isIndex(value, length) {
+	  const type = typeof value
+	  length = length == null ? MAX_SAFE_INTEGER : length
+
+	  return !!length &&
+	    (type === 'number' ||
+	      (type !== 'symbol' && reIsUint.test(value))) &&
+	        (value > -1 && value % 1 == 0 && value < length)
+	}
+
+	return objects.isIndex = isIndex;
+});
+define('skylark-langx-objects/set',[
+	"skylark-langx-types",
+	"./objects",
+	"./_cast_path",
+	"./is-index",
+	"./to-key"
+],function(types,objects,castPath,isIndex,toKey) {
+	/**
+	 * The base implementation of `set`.
+	 *
+	 * @private
+	 * @param {Object} object The object to modify.
+	 * @param {Array|string} path The path of the property to set.
+	 * @param {*} value The value to set.
+	 * @param {Function} [customizer] The function to customize path creation.
+	 * @returns {Object} Returns `object`.
+	 */
+	function baseSet(object, path, value, customizer) {
+	  if (!types.isObject(object)) {
+	    return object
+	  }
+	  path = castPath(path, object)
+
+	  const length = path.length
+	  const lastIndex = length - 1
+
+	  let index = -1
+	  let nested = object
+
+	  while (nested != null && ++index < length) {
+	    const key = toKey(path[index])
+	    let newValue = value
+
+	    if (index != lastIndex) {
+	      const objValue = nested[key]
+	      newValue = customizer ? customizer(objValue, key, nested) : undefined
+	      if (newValue === undefined) {
+	        newValue = types.isObject(objValue)
+	          ? objValue
+	          : (isIndex(path[index + 1]) ? [] : {})
+	      }
+	    }
+	    nested[key] = newValue; //  assignValues() lwf
+	    nested = nested[key];
+	  }
+	  return object
+	}
+
+	/**
+	 * Sets the value at `path` of `object`. If a portion of `path` doesn't exist,
+	 * it's created. Arrays are created for missing index properties while objects
+	 * are created for all other missing properties. Use `setWith` to customize
+	 * `path` creation.
+	 *
+	 * **Note:** This method mutates `object`.
+	 *
+	 * @since 3.7.0
+	 * @category Object
+	 * @param {Object} object The object to modify.
+	 * @param {Array|string} path The path of the property to set.
+	 * @param {*} value The value to set.
+	 * @returns {Object} Returns `object`.
+	 * @see has, hasIn, get, unset
+	 * @example
+	 *
+	 * const object = { 'a': [{ 'b': { 'c': 3 } }] }
+	 *
+	 * set(object, 'a[0].b.c', 4)
+	 * console.log(object.a[0].b.c)
+	 * // => 4
+	 *
+	 * set(object, ['x', '0', 'y', 'z'], 5)
+	 * console.log(object.x[0].y.z)
+	 * // => 5
+	 */
+	function set(object, path, value) {
+	  return object == null ? object : baseSet(object, path, value)
+	}
+
+
+	return objects.set = set;
+
 });
  define('skylark-langx-objects/shadow',[
 	"./objects"
@@ -1151,20 +1545,91 @@ define('skylark-langx-objects/scall',[
 
     return objects.shadow = shadow;
 });
+define('skylark-langx-objects/unset',[
+	"skylark-langx-types",
+	"./objects",
+	"./set"
+],function(types,objects,set) {
+
+	/**
+	 * Removes the property at `path` of `object`.
+	 *
+	 * **Note:** This method mutates `object`.
+	 *
+	 * @since 4.0.0
+	 * @category Object
+	 * @param {Object} object The object to modify.
+	 * @param {Array|string} path The path of the property to unset.
+	 * @returns {boolean} Returns `true` if the property is deleted, else `false`.
+	 * @see get, has, set
+	 * @example
+	 *
+	 * const object = { 'a': [{ 'b': { 'c': 7 } }] }
+	 * unset(object, 'a[0].b.c')
+	 * // => true
+	 *
+	 * console.log(object)
+	 * // => { 'a': [{ 'b': {} }] }
+	 *
+	 * unset(object, ['a', '0', 'b', 'c'])
+	 * // => true
+	 *
+	 * console.log(object)
+	 * // => { 'a': [{ 'b': {} }] }
+	 */
+	function unset(object, path) {
+	  return object == null ? true : set(object, path,undefined)
+	}
+
+	return objects.unset = unset;
+});
+define('skylark-langx-objects/values',[
+    "skylark-langx-types",
+    "./objects",
+    "./all-keys"
+],function(types,objects,allKeys){
+    // Retrieve the values of an object's properties.
+    function values(obj) {
+        var keys = allKeys(obj);
+        var length = keys.length;
+        var values = Array(length);
+        for (var i = 0; i < length; i++) {
+            values[i] = obj[keys[i]];
+        }
+        return values;
+    }
+
+    return objects.values = values;
+});
 define('skylark-langx-objects/main',[
 	"./objects",
+	"./all-keys",
+	"./assign",
+	"./base-at",
 	"./clone",
+	"./defaults",
 	"./each",
 	"./extend",
+	"./for-each",
+	"./get",
+	"./has",
 	"./includes",
 	"./is-equal",
+	"./is-key",
+	"./is-match",
+	"./keys",
 	"./mixin",
 	"./omit",
 	"./pick",
+	"./remove-items",
 	"./result",
 	"./safe-mixin",
 	"./scall",
-	"./shadow"
+	"./set",
+	"./shadow",
+	"./to-key",
+	"./unset",
+	"./values"
 ],function(objects){
 	return objects;
 });
@@ -1196,6 +1661,60 @@ define('skylark-langx-funcs/funcs',[
 
     });
 });
+define('skylark-langx-funcs/rest-arguments',[
+	"./funcs"
+],function(funcs){
+
+  // Some functions take a variable number of arguments, or a few expected
+  // arguments at the beginning and then a variable number of values to operate
+  // on. This helper accumulates all remaining arguments past the function’s
+  // argument length (or an explicit `startIndex`), into an array that becomes
+  // the last argument. Similar to ES6’s "rest parameter".
+  function restArguments(func, startIndex) {
+    startIndex = startIndex == null ? func.length - 1 : +startIndex;
+    return function() {
+      var length = Math.max(arguments.length - startIndex, 0),
+          rest = Array(length),
+          index = 0;
+      for (; index < length; index++) {
+        rest[index] = arguments[index + startIndex];
+      }
+      switch (startIndex) {
+        case 0: return func.call(this, rest);
+        case 1: return func.call(this, arguments[0], rest);
+        case 2: return func.call(this, arguments[0], arguments[1], rest);
+      }
+      var args = Array(startIndex + 1);
+      for (index = 0; index < startIndex; index++) {
+        args[index] = arguments[index];
+      }
+      args[startIndex] = rest;
+      return func.apply(this, args);
+    };
+  }
+
+  return funcs.restArguments = restArguments;	
+});
+define('skylark-langx-funcs/bind-all',[
+	"./funcs",
+	"./rest-arguments"
+],function(funcs,restArguments){
+
+  // Bind a number of an object's methods to that object. Remaining arguments
+  // are the method names to be bound. Useful for ensuring that all callbacks
+  // defined on an object belong to it.
+  return funcs.bindAll = restArguments(function(obj, keys) {
+    ///keys = flatten(keys, false, false);
+    var index = keys.length;
+    if (index < 1) throw new Error('bindAll must be passed function names');
+    while (index--) {
+      var key = keys[index];
+      obj[key] = obj[key].bind(obj);
+    }
+  });
+
+});
+
 define('skylark-langx-funcs/defer',[
     "skylark-langx-types",
     "./funcs"
@@ -1234,6 +1753,7 @@ define('skylark-langx-funcs/defer',[
         } else {
             var  id;
             if (trigger == 0 && requestAnimationFrame) {
+                //setImmediate
                 id = requestAnimationFrame(fn1);
                 ret.cancel = function() {
                     return cancelAnimationFrame(id);
@@ -1452,8 +1972,8 @@ define('skylark-langx-funcs/template',[
   "./funcs",
   "./proxy"
 ],function(objects,funcs,proxy){
+    //ref : underscore
     var slice = Array.prototype.slice;
-
    
     // By default, Underscore uses ERB-style template delimiters, change the
     // following template settings to use alternative delimiters.
@@ -1484,7 +2004,7 @@ define('skylark-langx-funcs/template',[
     var escaper = /\\|'|\r|\n|\t|\u2028|\u2029/g;
 
 
-    function template(text, data, settings) {
+    function template(text, settings) {
         var render;
         settings = objects.defaults({}, settings,templateSettings);
 
@@ -1530,9 +2050,10 @@ define('skylark-langx-funcs/template',[
           throw e;
         }
 
-        if (data) {
-          return render(data,this)
-        }
+        ///if (data) {
+        ///  return render(data,this)
+        ///}
+        
         var template = proxy(function(data) {
           return render.call(this, data,this);
         },this);
@@ -1565,276 +2086,43 @@ define('skylark-langx-funcs/throttle',[
         return throttled;
     };
 
+    /*
+    function throttle(func, delay) {
+        var timer = null;
+
+        return function() {
+            var context = this,
+                args = arguments;
+
+            if ( timer === null ) {
+                timer = setTimeout(function() {
+                    func.apply(context, args);
+                    timer = null;
+                }, delay);
+            }
+        };
+    }
+    */
+
+
     return funcs.throttle = throttle;
 });
 define('skylark-langx-funcs/main',[
 	"./funcs",
+	"./bind-all",
 	"./debounce",
 	"./defer",
 	"./delegate",
 	"./loop",
 	"./negate",
 	"./proxy",
+	"./rest-arguments",
 	"./template",
 	"./throttle"
 ],function(funcs){
 	return funcs;
 });
 define('skylark-langx-funcs', ['skylark-langx-funcs/main'], function (main) { return main; });
-
-define('skylark-langx-arrays/arrays',[
-  "skylark-langx-ns",
-  "skylark-langx-types",
-  "skylark-langx-objects"
-],function(skylark,types,objects){
-    var filter = Array.prototype.filter,
-        find = Array.prototype.find,
-        isArrayLike = types.isArrayLike;
-
-    /**
-     * The base implementation of `_.findIndex` and `_.findLastIndex` without
-     * support for iteratee shorthands.
-     *
-     * @param {Array} array The array to inspect.
-     * @param {Function} predicate The function invoked per iteration.
-     * @param {number} fromIndex The index to search from.
-     * @param {boolean} [fromRight] Specify iterating from right to left.
-     * @returns {number} Returns the index of the matched value, else `-1`.
-     */
-    function baseFindIndex(array, predicate, fromIndex, fromRight) {
-      var length = array.length,
-          index = fromIndex + (fromRight ? 1 : -1);
-
-      while ((fromRight ? index-- : ++index < length)) {
-        if (predicate(array[index], index, array)) {
-          return index;
-        }
-      }
-      return -1;
-    }
-
-    /**
-     * The base implementation of `_.indexOf` without `fromIndex` bounds checks.
-     *
-     * @param {Array} array The array to inspect.
-     * @param {*} value The value to search for.
-     * @param {number} fromIndex The index to search from.
-     * @returns {number} Returns the index of the matched value, else `-1`.
-     */
-    function baseIndexOf(array, value, fromIndex) {
-      if (value !== value) {
-        return baseFindIndex(array, baseIsNaN, fromIndex);
-      }
-      var index = fromIndex - 1,
-          length = array.length;
-
-      while (++index < length) {
-        if (array[index] === value) {
-          return index;
-        }
-      }
-      return -1;
-    }
-
-    /**
-     * The base implementation of `isNaN` without support for number objects.
-     *
-     * @private
-     * @param {*} value The value to check.
-     * @returns {boolean} Returns `true` if `value` is `NaN`, else `false`.
-     */
-    function baseIsNaN(value) {
-      return value !== value;
-    }
-
-
-    function compact(array) {
-        return filter.call(array, function(item) {
-            return item != null;
-        });
-    }
-
-    function filter2(array,func) {
-      return filter.call(array,func);
-    }
-
-    function flatten(array) {
-        if (isArrayLike(array)) {
-            var result = [];
-            for (var i = 0; i < array.length; i++) {
-                var item = array[i];
-                if (isArrayLike(item)) {
-                    for (var j = 0; j < item.length; j++) {
-                        result.push(item[j]);
-                    }
-                } else {
-                    result.push(item);
-                }
-            }
-            return result;
-        } else {
-            return array;
-        }
-        //return array.length > 0 ? concat.apply([], array) : array;
-    }
-
-    function grep(array, callback) {
-        var out = [];
-
-        objects.each(array, function(i, item) {
-            if (callback(item, i)) {
-                out.push(item);
-            }
-        });
-
-        return out;
-    }
-
-    function inArray(item, array) {
-        if (!array) {
-            return -1;
-        }
-        var i;
-
-        if (array.indexOf) {
-            return array.indexOf(item);
-        }
-
-        i = array.length;
-        while (i--) {
-            if (array[i] === item) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    function indexOf(array,item) {
-      return array.indexOf(item);
-    }
-
-    function makeArray(obj, offset, startWith) {
-       if (isArrayLike(obj) ) {
-        return (startWith || []).concat(Array.prototype.slice.call(obj, offset || 0));
-      }
-
-      // array of single index
-      return [ obj ];             
-    }
-
-
-    function forEach (arr, fn) {
-      if (arr.forEach) return arr.forEach(fn)
-      for (var i = 0; i < arr.length; i++) fn(arr[i], i);
-    }
-
-    function last(arr) {
-        return arr[arr.length - 1];     
-    }
-
-    function map(elements, callback) {
-        var value, values = [],
-            i, key
-        if (isArrayLike(elements))
-            for (i = 0; i < elements.length; i++) {
-                value = callback.call(elements[i], elements[i], i);
-                if (value != null) values.push(value)
-            }
-        else
-            for (key in elements) {
-                value = callback.call(elements[key], elements[key], key);
-                if (value != null) values.push(value)
-            }
-        return flatten(values)
-    }
-
-
-    function merge( first, second ) {
-      var l = second.length,
-          i = first.length,
-          j = 0;
-
-      if ( typeof l === "number" ) {
-        for ( ; j < l; j++ ) {
-          first[ i++ ] = second[ j ];
-        }
-      } else {
-        while ( second[j] !== undefined ) {
-          first[ i++ ] = second[ j++ ];
-        }
-      }
-
-      first.length = i;
-
-      return first;
-    }
-
-    function reduce(array,callback,initialValue) {
-        return Array.prototype.reduce.call(array,callback,initialValue);
-    }
-
-    function uniq(array) {
-        return filter.call(array, function(item, idx) {
-            return array.indexOf(item) == idx;
-        })
-    }
-
-    function find2(array,func) {
-      return find.call(array,func);
-    }
-
-    return skylark.attach("langx.arrays",{
-        baseFindIndex: baseFindIndex,
-
-        baseIndexOf : baseIndexOf,
-        
-        compact: compact,
-
-        first : function(items,n) {
-            if (n) {
-                return items.slice(0,n);
-            } else {
-                return items[0];
-            }
-        },
-
-        filter : filter2,
-
-        find : find2,
-        
-        flatten: flatten,
-
-        grep: grep,
-
-        inArray: inArray,
-
-        indexOf : indexOf,
-
-        makeArray: makeArray, // 
-
-        toArray : makeArray,
-
-        last : last,
-
-        merge : merge,
-
-        forEach : forEach,
-
-        map : map,
-        
-        reduce : reduce,
-
-        uniq : uniq
-
-    });
-});
-define('skylark-langx-arrays/main',[
-	"./arrays"
-],function(arrays){
-	return arrays;
-});
-define('skylark-langx-arrays', ['skylark-langx-arrays/main'], function (main) { return main; });
 
 define('skylark-langx-constructs/constructs',[
   "skylark-langx-ns"
@@ -1872,6 +2160,423 @@ define('skylark-langx-constructs/inherit',[
 
     return constructs.inherit = inherit
 });
+define('skylark-langx-arrays/arrays',[
+  "skylark-langx-ns"
+],function(skylark){
+    return skylark.attach("langx.arrays");
+});
+define('skylark-langx-arrays/base-find-index',[
+  "./arrays"
+],function(arrays){
+    /**
+     * The base implementation of `_.findIndex` and `_.findLastIndex` without
+     * support for iteratee shorthands.
+     *
+     * @param {Array} array The array to inspect.
+     * @param {Function} predicate The function invoked per iteration.
+     * @param {number} fromIndex The index to search from.
+     * @param {boolean} [fromRight] Specify iterating from right to left.
+     * @returns {number} Returns the index of the matched value, else `-1`.
+     */
+    function baseFindIndex(array, predicate, fromIndex, fromRight) {
+      var length = array.length,
+          index = fromIndex + (fromRight ? 1 : -1);
+
+      while ((fromRight ? index-- : ++index < length)) {
+        if (predicate(array[index], index, array)) {
+          return index;
+        }
+      }
+      return -1;
+    }
+
+    return arrays.baseFindIndex = baseFindIndex;
+});
+define('skylark-langx-arrays/base-indexof',[
+  "./arrays",
+  "./base-find-index"
+],function(arrays,baseFindIndex){
+
+    /**
+     * The base implementation of `isNaN` without support for number objects.
+     *
+     * @private
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if `value` is `NaN`, else `false`.
+     */
+    function baseIsNaN(value) {
+      return value !== value;
+    }
+
+    /**
+     * The base implementation of `_.indexOf` without `fromIndex` bounds checks.
+     *
+     * @param {Array} array The array to inspect.
+     * @param {*} value The value to search for.
+     * @param {number} fromIndex The index to search from.
+     * @returns {number} Returns the index of the matched value, else `-1`.
+     */
+    function baseIndexOf(array, value, fromIndex) {
+      if (value !== value) {
+        return baseFindIndex(array, baseIsNaN, fromIndex);
+      }
+      var index = fromIndex - 1,
+          length = array.length;
+
+      while (++index < length) {
+        if (array[index] === value) {
+          return index;
+        }
+      }
+      return -1;
+    }
+	
+	return arrays.baseIndexOf = baseIndexOf;
+});
+define('skylark-langx-arrays/filter',[
+  "./arrays"
+],function(arrays){
+   var _filter = Array.prototype.filter;
+ 
+    function filter(array,func) {
+      return _filter.call(array,func);
+    }
+
+    return arrays.filter = filter;
+	
+});
+define('skylark-langx-arrays/compact',[
+  "./arrays",
+  "./filter"
+],function(arrays,filter){
+
+    function compact(array) {
+        return filter(array, function(item) {
+            return item != null;
+        });
+    }
+
+    return arrays.compact = compact;
+});
+define('skylark-langx-arrays/in-array',[
+  "./arrays"
+],function(arrays){
+    function inArray(item, array) {
+        if (!array) {
+            return -1;
+        }
+        var i;
+
+        if (array.indexOf) {
+            return array.indexOf(item);
+        }
+
+        i = array.length;
+        while (i--) {
+            if (array[i] === item) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    return arrays.inArray = inArray;
+	
+});
+define('skylark-langx-arrays/contains',[
+  "./arrays",
+  "./in-array"
+],function(arrays,inArray){
+
+    function contains(array,item) {
+      return inArray(item,array);
+    }
+	
+	return arrays.contains = contains;
+});
+define('skylark-langx-arrays/flatten',[
+  "skylark-langx-types",
+  "./arrays"
+],function(types,arrays){
+
+    function flatten(array) {
+        if (types.isArrayLike(array)) {
+            var result = [];
+            for (var i = 0; i < array.length; i++) {
+                var item = array[i];
+                if (types.isArrayLike(item)) {
+                    for (var j = 0; j < item.length; j++) {
+                        result.push(item[j]);
+                    }
+                } else {
+                    result.push(item);
+                }
+            }
+            return result;
+        } else {
+            return array;
+        }
+        //return array.length > 0 ? concat.apply([], array) : array;
+    }
+
+    return arrays.flatten = flatten;
+});
+define('skylark-langx-arrays/difference',[
+  "skylark-langx-funcs",
+  "./arrays",
+  "./flatten",
+  "./filter",
+  "./contains"
+],function(funcs,arrays,flatten,filter,contains){
+   // Take the difference between one array and a number of other arrays.
+    // Only the elements present in just the first array will remain.
+    var difference  = funcs.restArguments(function(array, rest) {
+      rest = flatten(rest, true, true);
+      return filter(array, function(value){
+        return !contains(rest, value);
+      });
+    });
+
+    return arrays.difference = difference;
+	
+});
+define('skylark-langx-arrays/find',[
+  "./arrays"
+],function(arrays){
+    var _find = Array.prototype.find;
+
+    function find(array,func) {
+      return _find.call(array,func);
+    }
+
+    return arrays.find = find;
+});
+define('skylark-langx-arrays/first',[
+  "./arrays"
+],function(arrays){
+    function first(items,n) {
+      if (n) {
+          return items.slice(0,n);
+      } else {
+          return items[0];
+      }
+    }
+
+    return arrays.first = first;
+});
+define('skylark-langx-arrays/grep',[
+  "skylark-langx-objects",
+  "./arrays"
+],function(objects,arrays){
+    function grep(array, callback) {
+        var out = [];
+
+        objects.each(array, function(i, item) {
+            if (callback(item, i)) {
+                out.push(item);
+            }
+        });
+
+        return out;
+    }
+
+    return arrays.grep = grep;
+});
+define('skylark-langx-arrays/indexof',[
+  "./arrays"
+],function(arrays){
+
+    function indexOf(array,item) {
+      return array.indexOf(item);
+    }
+
+    return arrays.indexOf = indexOf;
+});
+define('skylark-langx-arrays/last',[
+  "./arrays"
+],function(arrays){
+    // Get the last element of an array. 
+    function last(arr) {
+        return arr[arr.length - 1];     
+    }
+
+    return arrays.last = last;
+});
+define('skylark-langx-arrays/make-array',[
+	"skylark-langx-types",
+ 	"./arrays"
+],function(types,arrays){
+    function makeArray(obj, offset, startWith) {
+       if (types.isArrayLike(obj) ) {
+        return (startWith || []).concat(Array.prototype.slice.call(obj, offset || 0));
+      }
+
+      // array of single index
+      return [ obj ];             
+    }
+
+	return arrays.makeArray = makeArray;	
+});
+define('skylark-langx-arrays/map',[
+	"skylark-langx-types",
+  	"./arrays",
+  	"./flatten"
+],function(types,arrays,flatten){
+    function map(elements, callback) {
+        var value, values = [],
+            i, key
+        if (types.isArrayLike(elements))
+            for (i = 0; i < elements.length; i++) {
+                value = callback.call(elements[i], elements[i], i);
+                if (value != null) values.push(value)
+            }
+        else
+            for (key in elements) {
+                value = callback.call(elements[key], elements[key], key);
+                if (value != null) values.push(value)
+            }
+        return flatten(values)
+    }
+
+    return arrays.map = map;
+});
+define('skylark-langx-arrays/merge',[
+  "./arrays"
+],function(arrays){
+
+    function merge( first, second ) {
+      var l = second.length,
+          i = first.length,
+          j = 0;
+
+      if ( typeof l === "number" ) {
+        for ( ; j < l; j++ ) {
+          first[ i++ ] = second[ j ];
+        }
+      } else {
+        while ( second[j] !== undefined ) {
+          first[ i++ ] = second[ j++ ];
+        }
+      }
+
+      first.length = i;
+
+      return first;
+    }
+
+    return arrays.merge = merge;
+	
+});
+define('skylark-langx-arrays/pull-at',[
+  "skylark-langx-types",
+  "skylark-langx-objects",
+  "./arrays"
+],function(types,objects,arrays){
+
+	/**
+	 * Removes elements from `array` corresponding to `indexes` and returns an
+	 * array of removed elements.
+	 *
+	 * **Note:** Unlike `at`, this method mutates `array`.
+	 *
+	 * @category Array
+	 * @param {Array} array The array to modify.
+	 * @param {...(number|number[])} [indexes] The indexes of elements to remove.
+	 * @returns {Array} Returns the new array of removed elements.
+	 * @see pull, pullAll, pullAllBy, pullAllWith, remove, reject
+	 * @example
+	 *
+	 * const array = ['a', 'b', 'c', 'd']
+	 * const pulled = pullAt(array, [1, 3])
+	 *
+	 * console.log(array)
+	 * // => ['a', 'c']
+	 *
+	 * console.log(pulled)
+	 * // => ['b', 'd']
+	 */
+	function pullAt(array, ...indexes) {
+	  const length = array == null ? 0 : array.length
+	  const result = objects.baseAt(array, indexes)
+
+	  indexes.sort(function(a, b) {
+  		return a - b;
+	  });
+
+	  for (let i= indexes.length-1;i>=0;i--) {
+	  	array.slice(indexes[i],1);
+	  }
+
+	  return result
+	}
+
+	return arrays.pullAt = pullAt;
+});
+
+define('skylark-langx-arrays/reduce',[
+  "./arrays"
+],function(arrays){
+
+    function reduce(array,callback,initialValue) {
+        return Array.prototype.reduce.call(array,callback,initialValue);
+    }
+
+    return arrays.reduce = reduce;	
+});
+define('skylark-langx-arrays/uniq',[
+  "./arrays",
+  "./filter"
+],function(arrays,filter){
+
+    function uniq(array) {
+        return filter(array, function(item, idx) {
+            return array.indexOf(item) == idx;
+        })
+    }
+	
+	return arrays.uniq = uniq;
+});
+define('skylark-langx-arrays/without',[
+	"skylark-langx-funcs",
+  "./arrays",
+  "./difference"
+],function(funcs,arrays,difference){
+
+    // Return a version of the array that does not contain the specified value(s).
+    var without = funcs.restArguments(function(array, otherArrays) {
+      return difference(array, otherArrays);
+    });
+
+    return arrays.without = without;
+});
+define('skylark-langx-arrays/main',[
+	"./arrays",
+	"./base-find-index",
+	"./base-indexof",
+	"./compact",
+	"./contains",
+	"./difference",
+	"./filter",
+	"./find",
+	"./first",
+	"./flatten",
+	"./grep",
+	"./in-array",
+	"./indexof",
+	"./last",
+	"./make-array",
+	"./map",
+	"./merge",
+	"./pull-at",
+	"./reduce",
+	"./uniq",
+	"./without"
+],function(arrays){
+	return arrays;
+});
+define('skylark-langx-arrays', ['skylark-langx-arrays/main'], function (main) { return main; });
+
 define('skylark-langx-constructs/klass',[
   "skylark-langx-ns",
   "skylark-langx-types",
@@ -2124,13 +2829,21 @@ let longEar = klass({
 
     return constructs.klass = createClass;
 });
+define('skylark-langx-constructs/main',[
+	"./constructs",
+	"./inherit",
+	"./klass"
+],function(constructs){
+	return constructs;
+});
+define('skylark-langx-constructs', ['skylark-langx-constructs/main'], function (main) { return main; });
+
 define('skylark-langx-klass/klass',[
   "skylark-langx-ns",
-  "skylark-langx-constructs/klass"
-],function(skylark,klass){
+  "skylark-langx-constructs"
+],function(skylark,constructs){
 
-
-    return skylark.attach("langx.klass",klass);
+    return skylark.attach("langx.klass",constructs.klass);
 });
 define('skylark-langx-klass/main',[
 	"./klass"
@@ -2369,7 +3082,7 @@ define('skylark-langx-hoster/detects/mobile',[
     return hoster.detects.mobile = detectMobile;
 });
 
-define('skylark-langx-hoster/isMobile',[
+define('skylark-langx-hoster/is-mobile',[
     "./hoster",
     "./detects/mobile"
 ],function(hoster,detectMobile){
@@ -2382,13 +3095,13 @@ define('skylark-langx-hoster/isMobile',[
 
 define('skylark-langx-hoster/main',[
 	"./hoster",
-	"./isMobile"
+	"./is-mobile"
 ],function(hoster){
 	return hoster;
 });
 define('skylark-langx-hoster', ['skylark-langx-hoster/main'], function (main) { return main; });
 
-define('skylark-langx-events/Event',[
+define('skylark-langx-events/event',[
   "skylark-langx-objects",
   "skylark-langx-funcs",
   "skylark-langx-klass",
@@ -2445,13 +3158,13 @@ define('skylark-langx-events/Event',[
     return events.Event = Event;
     
 });
-define('skylark-langx-events/Listener',[
+define('skylark-langx-events/listener',[
   "skylark-langx-types",
   "skylark-langx-objects",
   "skylark-langx-arrays",
   "skylark-langx-klass",
   "./events",
-  "./Event"
+  "./event"
 ],function(types,objects,arrays,klass,events,Event){
     var slice = Array.prototype.slice,
         compact = arrays.compact,
@@ -2473,6 +3186,31 @@ define('skylark-langx-events/Listener',[
                 return this;
             }
 
+            if (types.isPlainObject(event)){
+                //listenTo(obj,callbacks,one)
+                if (types.isBoolean(selector)) {
+                    one = selector;
+                    selector = null;
+                } else if (types.isBoolean(callback)) {
+                    one = callback;
+                }
+                var callbacks = event;
+                for (var name in callbacks) {
+
+                    var match = name.match( /^([\w:-]*)\s*(.*)$/ );
+                    var name1 = match[ 1 ];
+                    var selector1 = match[ 2 ] || selector;
+
+                    if (selector1) {
+                        this.listenTo(obj,name1,selector1,callbacks[name],one);
+                    } else {
+                        this.listenTo(obj,name1,callbacks[name],one);
+                    }
+
+                }
+                return this;
+            }
+
             if (isBoolean(callback)) {
                 one = callback;
                 callback = selector;
@@ -2486,14 +3224,7 @@ define('skylark-langx-events/Listener',[
                 selector = null;
             }
 
-            if (types.isPlainObject(event)){
-                //listenTo(obj,callbacks,one)
-                var callbacks = event;
-                for (var name in callbacks) {
-                    this.listenTo(obj,name,callbacks[name],one);
-                }
-                return this;
-            }
+
 
             if (!callback) {
                 callback = "handleEvent";
@@ -2504,17 +3235,19 @@ define('skylark-langx-events/Listener',[
                 callback = this[callback];
             }
 
+            var emitter = this.ensureListenedEmitter(obj)
+
             if (one) {
                 if (selector) {
-                    obj.one(event, selector,callback, this);
+                    emitter.one(event, selector,callback, this);
                 } else {
-                    obj.one(event, callback, this);
+                    emitter.one(event, callback, this);
                 }
             } else {
                  if (selector) {
-                    obj.on(event, selector, callback, this);
+                    emitter.on(event, selector, callback, this);
                 } else {
-                    obj.on(event, callback, this);
+                    emitter.on(event, callback, this);
                 }
             }
 
@@ -2581,7 +3314,8 @@ define('skylark-langx-events/Listener',[
 
                     for (var j = 0; j < listeningEvent.length; j++) {
                         if (!callback || callback == listeningEvent[i]) {
-                            listening.obj.off(eventName, listeningEvent[i], this);
+                            let emitter = this.ensureListenedEmitter(listening.obj);
+                            emitter.off(eventName, listeningEvent[i], this);
                             listeningEvent[i] = null;
                         }
                     }
@@ -2605,20 +3339,24 @@ define('skylark-langx-events/Listener',[
             }
 
             return this;
+        },
+
+        ensureListenedEmitter : function(obj) {
+            return obj;
         }
     });
 
     return events.Listener = Listener;
 
 });
-define('skylark-langx-events/Emitter',[
+define('skylark-langx-events/emitter',[
   "skylark-langx-types",
   "skylark-langx-objects",
   "skylark-langx-arrays",
   "skylark-langx-klass",
   "./events",
-  "./Event",
-  "./Listener"
+  "./event",
+  "./listener"
 ],function(types,objects,arrays,klass,events,Event,Listener){
     var slice = Array.prototype.slice,
         compact = arrays.compact,
@@ -2637,6 +3375,10 @@ define('skylark-langx-events/Emitter',[
             ns: segs.slice(1).join(" ")
         };
     }
+
+    
+    var queues  = new Map();
+
 
     var Emitter = Listener.inherit({
         _prepareArgs : function(e,args) {
@@ -2769,6 +3511,26 @@ define('skylark-langx-events/Emitter',[
             return this;
         },
 
+        queueEmit : function (event) {
+            const type = event.type || event;
+            let map = queues.get(this);
+            if (!map) {
+                map = new Map();
+                queues.set(this, map);
+            }
+            const oldTimeout = map.get(type);
+            map.delete(type);
+            window.clearTimeout(oldTimeout);
+            const timeout = window.setTimeout(() => {
+                if (map.size === 0) {
+                    map = null;
+                    queues.delete(this);
+                }
+                this.trigger(event);
+            }, 0);
+            map.set(type, timeout);
+        },
+
         listened: function(event) {
             var evtArr = ((this._hub || (this._events = {}))[event] || []);
             return evtArr.length > 0;
@@ -2820,18 +3582,24 @@ define('skylark-langx-events/Emitter',[
 
             return this;
         },
+
         trigger  : function() {
             return this.emit.apply(this,arguments);
+        },
+
+        queueTrigger : function (event) {
+            return this.queueEmit.apply(this,arguments);
         }
+
     });
 
 
     return events.Emitter = Emitter;
 
 });
-define('skylark-langx-events/createEvent',[
+define('skylark-langx-events/create-event',[
 	"./events",
-	"./Event"
+	"./event"
 ],function(events,Event){
     function createEvent(type,props) {
         //var e = new CustomEvent(type,props);
@@ -2843,10 +3611,10 @@ define('skylark-langx-events/createEvent',[
 });
 define('skylark-langx-events/main',[
 	"./events",
-	"./Event",
-	"./Listener",
-	"./Emitter",
-	"./createEvent"
+	"./event",
+	"./listener",
+	"./emitter",
+	"./create-event"
 ],function(events){
 	return events;
 });
@@ -4855,7 +5623,7 @@ define('skylark-io-streams/streams-sequence-stream',[
                 return;
             }
             var stream = _streams.shift();
-            var chunk = _streams.getBytes();
+            var chunk = stream.getBytes();
             var bufferLength = this.bufferLength;
             var newLength = bufferLength + chunk.length;
             var buffer = this.ensureBuffer(newLength);

@@ -29,7 +29,7 @@ define([
                 return;
             }
             var stream = _streams.shift();
-            var chunk = _streams.getBytes();
+            var chunk = stream.getBytes();
             var bufferLength = this.bufferLength;
             var newLength = bufferLength + chunk.length;
             var buffer = this.ensureBuffer(newLength);
